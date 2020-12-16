@@ -95,7 +95,7 @@ class AuthorizationCodeFlow:
         dialog_url = response.url
         webbrowser.open(dialog_url)
         redirected = input("Please paste redirect URL: ").strip()
-        self.request_token_with_authorization_code(authorization_code(self.redirect_uri, redirected))
+        return self.request_token_with_authorization_code(authorization_code(self.redirect_uri, redirected))
     
 
     def request_token_with_authorization_code(self, authorization_code):
