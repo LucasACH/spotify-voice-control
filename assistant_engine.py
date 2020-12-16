@@ -1,6 +1,9 @@
 import pyttsx3
 
 class VirtualAssistant:
+    """Spotify speech response
+    ---
+    """
 
     # Initialize pyttsx3
     engine = pyttsx3.init()
@@ -12,7 +15,7 @@ class VirtualAssistant:
     engine.setProperty("voice", voices[0].id)
 
     # Set voice speed rate
-    engine.setProperty("rate", 140)
+    engine.setProperty("rate", 135)
     
     # To see voices installed in your PC, call VirtualAssistant().get_voices() 
     def get_voices(self):
