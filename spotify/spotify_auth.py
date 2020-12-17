@@ -3,6 +3,9 @@ from spotify.spotify_credentials import SpotifyCredentials
 import webbrowser
 from base64 import b64encode as _b64encode
 import csv
+from datetime import datetime
+
+now = datetime.now()
 
 def b64encode(msg: str) -> str:
         """Encode a unicode string in base-64."""
@@ -18,6 +21,7 @@ def save_access_and_refresh(access_token, refresh_token):
     with open("spotify/tokens.csv", "w", newline = "\n") as tokens_database:
         writer = csv.DictWriter(tokens_database, fieldnames = ["token", "id"])
         writer.writerow({"token":"access_token", "id":access_token})
+        writer.writerow({"token":"requested_on", "id":now})
         writer.writerow({"token":"refresh_token", "id":refresh_token})
 
 def update_access_token(access_token):
@@ -38,6 +42,7 @@ def update_access_token(access_token):
     with open("spotify/tokens.csv", "w", newline = "\n") as tokens_database:
         writer = csv.DictWriter(tokens_database, fieldnames = ["token", "id"])
         writer.writerow({"token":"access_token", "id":access_token})
+        writer.writerow({"token":"requested_on", "id":now})
         writer.writerow(refresh_token)
     
 
