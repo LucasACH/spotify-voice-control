@@ -6,129 +6,212 @@ import speech_recognition as sr
 from assistant_engine import VirtualAssistant
 
 
-credentials = SpotifyCredentials()
-access_token = credentials.Tokens().access_token
-refresh_token = credentials.Tokens().refresh_token
+# Refresh token if expired [DONE]
+# Get available devices ({'devices': []} if no device) [DONE]
+# Choose device if > 1 []
+# Save device id in file []
+# Start app
+# If device is disconnected, choose if still > 1 or play on available device []
 
-auth = AuthorizationCodeFlow(credentials.client_id,
-                            credentials.client_secret,
-                            credentials.redirect_uri)
-
-spotify = SpotifyPlayer(access_token)
 listener = sr.Recognizer()
 spotify_speech = VirtualAssistant()
 
 
+selected_device = ""
+spotify = ""
 
-# Check if access token still valid
-# Get active device (step 1 can be done by checking active device)
+def app():
+    global spotify
+    global selected_device
+    try:
+        with sr.Microphone() as source:
+            listener.adjust_for_ambient_noise(source)
+            listener.pause_threshold = 1
+            user_voice = listener.listen(source, timeout=0)
+            command = listener.recognize_google(user_voice, language="en-US")
+            command = command.lower()
+            
+            if "spotify" in command:
+                command = command.replace("spotify ", "")
+                print(command)
+                
+                if "play" == command:
+                    try:
+                        return spotify.resume_playback(selected_device)
+                    except Unauthorized:
+                        init()
+                    
+                
+                if "pause" == command:
+                    try:
+                        return spotify.pause_playback(selected_device)
+                    except Unauthorized:
+                        init()
+                
+                if "volume" in command:
+                    volume = [int(s) for s in command.split() if s.isdigit()]
+                    spotify_speech.talk(("Setting volume to %d") % (volume[0]))
+                    
+                    try:
+                        return spotify.set_volume(volume[0], selected_device)
+                    except Unauthorized:
+                        init()
 
+                if "set repeat mode on" == command:
+                    spotify_speech.talk("Setting repeat mode on")
+                    try:
+                        return spotify.set_repeat_mode(device_id=selected_device)
+                    except Unauthorized:
+                        init()
+                
+                if "set repeat mode off" == command:
+                    spotify_speech.talk("Setting repeat mode off")
+                    try:
+                        return spotify.set_repeat_mode("off", selected_device)
+                    except Unauthorized:
+                        init()
+                
+                if "turn on shuffle mode" == command:
+                    spotify_speech.talk("Setting shuffle mode on")
+                    try:
+                        return spotify.toggle_shuffle(True, selected_device)
+                    except Unauthorized:
+                        init()
+                
+                if "turn off shuffle mode" == command:
+                    spotify_speech.talk("Setting shuffle mode off")
+                    try:
+                        return spotify.toggle_shuffle(False, selected_device)
+                    except Unauthorized:
+                        init()
+                
+                if "next song" in command:
+                    try:
+                        return spotify.next_track(selected_device)
+                    except Unauthorized:
+                        init()
+                
+                if "previous song" in command:
+                    try:
+                        return spotify.previous_track(selected_device)
+                    except Unauthorized:
+                        init()
 
+                if "song name" in command:
+                    try:
+                        current_playback = spotify.current_playback().json()
+                        song_name = current_playback ["item"]["name"]
+                        artist_name = current_playback ["item"]["album"]["artists"][0]["name"]
+                        return spotify_speech.talk(("You are listening to %s from %s") % (song_name, artist_name))
+                    except Unauthorized:
+                        init()
+        
+                if "devices" in command:
+                    try:
+                        available_devices = spotify.available_devices().json()
+                        available_devices = available_devices["devices"]
+                        total_available_devices = len(available_devices)
+            
+                        if total_available_devices > 1:
+                            return spotify_speech.talk("You have %d available devices." % (total_available_devices))
+                        else:
+                            return spotify_speech.talk("You have one available device.")
+                    except Unauthorized:
+                        init()
 
-def listen():
+                if "transfer playback" in command:
+                    command = command.split()
+                    
+                    try:
+                        available_devices = spotify.available_devices().json()
+                        available_devices = available_devices["devices"]
+                        available_devices_dict = {}
+
+                        for device in available_devices:
+                            if device["type"] == "Computer":
+                                available_devices_dict.update({"computer":device["id"]})
+                            elif device["type"] == "Smartphone":
+                                available_devices_dict.update({"smartphone":device["id"]})
+                    
+                        
+                        for device in command:
+                            if device == "computer":
+                                try:
+                                    if selected_device == available_devices_dict["computer"]:
+                                        return spotify_speech.talk("You are already listening in your computer")
+                                    else:
+                                        spotify_speech.talk("Transfering playback to computer")
+                                        spotify.transfer_playback(available_devices_dict["computer"])
+                                        selected_device = available_devices_dict["computer"]
+
+                                except KeyError:
+                                    return spotify_speech.talk("You don't have any computer available")
+
+                            if device == "smartphone":
+                                try:
+                                    if selected_device == available_devices_dict["smartphone"]:
+                                        return spotify_speech.talk("You are already listening in your smartphone")
+                                    else:
+                                        spotify_speech.talk("Transfering playback to smartphone")
+                                        spotify.transfer_playback(available_devices_dict["smartphone"])
+                                        selected_device = available_devices_dict["smartphone"]
+                                        
+                                except KeyError:
+                                    return spotify_speech.talk("You don't have any smartphone available")
+                            
+                    except Unauthorized:
+                        init()
+                
+                
+    except Exception:
+        pass
+    
+def init():
+
+    credentials = SpotifyCredentials()
+    access_token = credentials.Tokens().access_token
+    refresh_token = credentials.Tokens().refresh_token
+    expires_in = credentials.Tokens().expires_in
+
+    auth = AuthorizationCodeFlow(credentials.client_id,
+                                credentials.client_secret,
+                                credentials.redirect_uri)
+
+    global spotify
+    spotify = SpotifyPlayer(access_token)
+
     if access_token == None:
         auth.request_authorization_and_token()
+
     else:
         try:
             available_devices = spotify.available_devices().json()
-            current_playback = spotify.current_playback().json()
-            device_id = current_playback["device"]["id"]
-            available_devices_dict = {}
+            available_devices = available_devices["devices"]
+            total_available_devices = len(available_devices)
+            global selected_device
+            
+            if total_available_devices > 1:
+                spotify_speech.talk("You have %d available devices. Please choose one!" % (total_available_devices))
+                for index in range(total_available_devices):
+                    print(f"[{index}] " + available_devices[index]["type"] + ": " + available_devices[index]["name"])
+                selected_device = input("Choose device (int): ")
+                selected_device = available_devices[int(selected_device)]["id"]
+                spotify.transfer_playback(selected_device)
+                while True:
+                    app()
+            
+            if total_available_devices == 0:
+                spotify_speech.talk("You have no available devices.")
 
-            for device in available_devices["devices"]:
-                if device["type"] == "Computer":
-                    available_devices_dict.update({"computer":device["id"]})
-                elif device["type"] == "Smartphone":
-                    available_devices_dict.update({"smartphone":device["id"]})
-
-            try:
-                with sr.Microphone() as source:
-                    print("Listening...")
-                    user_voice = listener.listen(source, timeout=2, phrase_time_limit=4)
-                    command = listener.recognize_google(user_voice, language="en-US")
-                    command = command.lower()
-
-                    if "spotify" in command:
-                        command = command.replace("spotify ", "")
-                        print(command)
-
-                        if "devices" in command:
-                            total_devices = len(available_devices_dict.keys())
-                            if total_devices > 1:
-                                return spotify_speech.talk("You have %d available devices." % (total_devices))
-                            else:
-                                return spotify_speech.talk("You have one available device.")
-                        
-                        if "song name" in command:
-                            song_name = current_playback ["item"]["name"]
-                            artist_name = current_playback ["item"]["album"]["artists"][0]["name"]
-                            return spotify_speech.talk(("You are listening to %s from %s") % (song_name, artist_name))
-                        
-                        if "transfer playback" in command:
-                            command = command.split()
-                            for device in command:
-                                if device == "computer":
-                                    try:
-                                        if device_id == available_devices_dict["computer"]:
-                                            return spotify_speech.talk("You are already listening in your computer")
-                                        else:
-                                            spotify_speech.talk("Transfering playback to computer")
-                                            return spotify.transfer_playback(available_devices_dict["computer"])
-                                    except KeyError:
-                                        return spotify_speech.talk("You don't have any computer available")
-                                if device == "smartphone":
-                                    try:
-                                        if device_id == available_devices_dict["smartphone"]:
-                                            return spotify_speech.talk("You are already listening in your smartphone")
-                                        else:
-                                            spotify_speech.talk("Transfering playback to smartphone")
-                                            return spotify.transfer_playback(available_devices_dict["smartphone"])
-                                    except:
-                                        return spotify_speech.talk("You don't have any smartphone available")
-
-                        if "play" == command:
-                            return spotify.resume_playback(device_id)
-
-                        if "pause" == command:
-                            return spotify.pause_playback(device_id)
-
-                        if "volume" in command:
-                            volume = [int(s) for s in command.split() if s.isdigit()]
-                            spotify_speech.talk(("Volume set to %d") % (volume[0]))
-                            return spotify.set_volume(volume[0], device_id)
-
-                        if "set repeat mode on" == command:
-                            spotify_speech.talk("Repeat mode is on")
-                            return spotify.set_repeat_mode(device_id=device_id)
-                        
-                        if "set repeat mode off" == command:
-                            spotify_speech.talk("Repeat mode is off")
-                            return spotify.set_repeat_mode("off", device_id)
-                        
-                        if "turn on shuffle mode" == command:
-                            spotify_speech.talk("Shuffle mode is on")
-                            return spotify.toggle_shuffle(True, device_id)
-                        
-                        if "turn off shuffle mode" == command:
-                            spotify_speech.talk("Shuffle mode is off")
-                            return spotify.toggle_shuffle(False, device_id)
-                        
-                        if "next track" in command:
-                            return spotify.next_track(device_id)
-                        
-                        if "previous track" in command:
-                            return spotify.previous_track(device_id)
-
-                    else:
-                        pass
-
-            except:
-                pass
-
+            else:
+                selected_device = available_devices[0]["id"]
+                while True:
+                    app()
+                
         except Unauthorized:
             auth.request_token_with_refresh_token(refresh_token)
-
-
+            init()
 
 if __name__ == "__main__":
-    pass
+    init()
+
