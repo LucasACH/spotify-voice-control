@@ -342,7 +342,7 @@ class SpotifyPlayer:
             return response
     
 
-    def set_repeat_mode(self, state: str="context", device_id: str=None):
+    def set_repeat_mode(self, state: str="track", device_id: str=None):
         """Set the repeat mode for the user’s playback.
         ---
         Args:
