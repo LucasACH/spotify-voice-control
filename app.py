@@ -182,6 +182,7 @@ def init():
 
     if access_token == None:
         auth.request_authorization_and_token()
+        init()
 
     else:
         try:
