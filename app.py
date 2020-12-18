@@ -6,13 +6,6 @@ import speech_recognition as sr
 from assistant_engine import VirtualAssistant
 
 
-# Refresh token if expired [DONE]
-# Get available devices ({'devices': []} if no device) [DONE]
-# Choose device if > 1 []
-# Save device id in file []
-# Start app
-# If device is disconnected, choose if still > 1 or play on available device []
-
 listener = sr.Recognizer()
 spotify_speech = VirtualAssistant()
 
@@ -191,15 +184,34 @@ def init():
             total_available_devices = len(available_devices)
             global selected_device
             
+            # Check for available devices
             if total_available_devices > 1:
                 spotify_speech.talk("You have %d available devices. Please choose one!" % (total_available_devices))
+                
+                # Choose device
                 for index in range(total_available_devices):
                     print(f"[{index}] " + available_devices[index]["type"] + ": " + available_devices[index]["name"])
                 selected_device = input("Choose device (int): ")
-                selected_device = available_devices[int(selected_device)]["id"]
-                spotify.transfer_playback(selected_device)
-                while True:
-                    app()
+                try:
+                    selected_device = int(selected_device)
+                    if (int(selected_device) + 1) > total_available_devices:
+                        print("Index out of range!")
+                        return init()
+
+                    selected_device = available_devices[selected_device]["id"]
+                    try:
+                        spotify.transfer_playback(selected_device)
+                    except Unauthorized:
+                        return init()
+                    except InternalServerError:
+                        pass
+                    
+                    while True:
+                        app()
+                except ValueError:
+                    print("Type device index. Don't use letters!")
+                    return init()
+    
             
             if total_available_devices == 0:
                 spotify_speech.talk("You have no available devices.")
