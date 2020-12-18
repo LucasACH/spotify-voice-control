@@ -1,4 +1,3 @@
-Manage spotify playback state with voice control.
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
