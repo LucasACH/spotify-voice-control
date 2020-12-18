@@ -165,7 +165,6 @@ def init():
     access_token = credentials.Tokens().access_token
     refresh_token = credentials.Tokens().refresh_token
     expires_in = credentials.Tokens().expires_in
-
     auth = AuthorizationCodeFlow(credentials.client_id,
                                 credentials.client_secret,
                                 credentials.redirect_uri)
@@ -205,7 +204,7 @@ def init():
                         return init()
                     except InternalServerError:
                         pass
-                    
+
                     while True:
                         app()
                 except ValueError:
